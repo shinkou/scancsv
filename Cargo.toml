@@ -1,0 +1,11 @@
+[package]
+name = "scancsv"
+version = "0.1.0"
+authors = ["Chun-Kwong Wong <chunkwong.wong@gmail.com>"]
+
+[dependencies]
+bzip2 = "0.3.0"
+flate2 = "0.2.13"
+getopts = "0.2.14"
+tar = "0.4.4"
+xz2 = "0.1.0"
