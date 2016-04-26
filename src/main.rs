@@ -1,12 +1,14 @@
 extern crate bzip2;
 extern crate flate2;
 extern crate getopts;
+extern crate regex;
 extern crate tar;
 extern crate xz2;
 
 use std::env;
 
 use getopts::Options;
+use regex::Regex;
 
 mod scancsv;
 use scancsv::*;
@@ -37,11 +39,12 @@ fn main()
 	opts.optopt("d", "delimiter", "Separator. (default: tab)", "CHARS");
 	opts.optopt
 	(
-		"a"
-		, "array"
-		, "Array of comma separated values to look for. (default: \"\")"
+		"s"
+		, "search"
+		, "Comma separated values to search for. (default: \"\")"
 		, "VAL,VAL,..."
 	);
+	opts.optflag("r", "regex", "Make search a single regex pattern.");
 	opts.optflag("t", "tar", "Input file is a tarball.");
 	opts.optflag("z", "gzip", "Input file is compressed in Gzip.");
 	opts.optflag("j", "bzip2", "Input file is compressed in Bzip2.");
@@ -99,12 +102,20 @@ fn main()
 		, None => "\t".to_string()
 	};
 
-	// retrieve target values from option
-	let values: Vec<String> = match matches.opt_str("a")
+	// retrieve search values from option
+	let mut re: Option<Regex> = None;
+	let mut values: Vec<String> = vec![];
+	if let Some(s) = matches.opt_str("s")
 	{
-		Some(s) => s.split(",").map(String::from).collect()
-		, None => vec![]
-	};
+		if matches.opt_present("r")
+		{
+			re = Some(Regex::new(&s).unwrap());
+		}
+		else
+		{
+			values = s.split(",").map(String::from).collect();
+		}
+	}
 
 	// convert target values back to &str for easier handling
 	let values: Vec<&str> = values.iter().map(|s| s.as_ref()).collect();
@@ -118,6 +129,7 @@ fn main()
 		, files: matches.free[1..].iter().map(|s| s.as_ref()).collect()
 		, column: column
 		, delimiter: delimiter.as_ref()
+		, regex: re
 		, values: values
 		, output: matches.opt_str("o")
 	};

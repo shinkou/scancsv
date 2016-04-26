@@ -5,6 +5,7 @@ use std::path::Path;
 
 use bzip2::read::BzDecoder;
 use flate2::read::GzDecoder;
+use regex::Regex;
 use tar::Archive;
 use xz2::read::XzDecoder;
 
@@ -25,22 +26,47 @@ pub struct ScanCsv<'a>
 	, pub files: Vec<&'a str>
 	, pub column: usize
 	, pub delimiter: &'a str
+	, pub regex: Option<Regex>
 	, pub values: Vec<&'a str>
 	, pub output: Option<String>
 }
 
 impl<'a> ScanCsv<'a>
 {
-	fn print_line_if_matches(&self, s: &str)
+	fn println_if_matches(&self, re: &Regex, s: &str)
 	{
 		let cols: Vec<&str> = s.split(&self.delimiter).collect();
+
+		if re.is_match(&cols[self.column])
+		{
+			println!("{}", s);
+		}
+	}
+
+	fn writeln_if_matches<W: Write>(&self, mut w: W, re: &Regex, s: &str)
+		-> io::Result<()>
+	{
+		let cols: Vec<&str> = s.split(&self.delimiter).collect();
+
+		if re.is_match(&cols[self.column])
+		{
+			try!(writeln!(w, "{}", s));
+		}
+
+		Ok(())
+	}
+
+	fn println_if_equals(&self, s: &str)
+	{
+		let cols: Vec<&str> = s.split(&self.delimiter).collect();
+
 		if self.values.contains(&cols[self.column])
 		{
 			println!("{}", s);
 		}
 	}
 
-	fn write_line_if_matches<W: Write>(&self, mut w: W, s: &str)
+	fn writeln_if_equals<W: Write>(&self, mut w: W, s: &str)
 		-> io::Result<()>
 	{
 		let cols: Vec<&str> = s.split(&self.delimiter).collect();
@@ -59,18 +85,46 @@ impl<'a> ScanCsv<'a>
 		{
 			Some(ref w) =>
 			{
-				for line in reader.lines()
+				match self.regex
 				{
-					let line = try!(line);
-					try!(self.write_line_if_matches(w, &line));
+					Some(ref re) =>
+					{
+						for line in reader.lines()
+						{
+							let line = try!(line);
+							try!(self.writeln_if_matches(w, re, &line));
+						}
+					}
+					, None =>
+					{
+						for line in reader.lines()
+						{
+							let line = try!(line);
+							try!(self.writeln_if_equals(w, &line));
+						}
+					}
 				}
 			}
 			, None =>
 			{
-				for line in reader.lines()
+				match self.regex
 				{
-					let line = try!(line);
-					self.print_line_if_matches(&line);
+					Some(ref re) =>
+					{
+						for line in reader.lines()
+						{
+							let line = try!(line);
+							self.println_if_matches(re, &line);
+						}
+					}
+					, None =>
+					{
+						for line in reader.lines()
+						{
+							let line = try!(line);
+							self.println_if_equals(&line);
+						}
+					}
 				}
 			}
 		};
